@@ -18,7 +18,10 @@ static constexpr uint8_t COLORS[] = {
 };
 static constexpr uint8_t NUM_COLORS = sizeof(COLORS) / sizeof(COLORS[0]);
 
-static volatile uint8_t systick_flag = 0;
+// Cada cor pisca 2 vezes: 4 fases por cor (ON, OFF, ON, OFF)
+static constexpr uint8_t PHASES_PER_COLOR = 4U;
+
+static volatile uint8_t timer_flag = 0;
 
 static void configureOutputPushPull(GPIO_TypeDef *gpio, uint32_t pin)
 {
@@ -43,45 +46,60 @@ static void applyColor(uint8_t color)
 
 extern "C" {
 
-// SysTick dispara a cada 1s; main consome o flag e avanca a cor.
-void SysTick_Handler(void)
+// TIM2 dispara a cada 250 ms; main consome o flag e avanca a fase.
+void TIM2_IRQHandler(void)
 {
-    systick_flag = 1;
+    if (TIM2->SR & TIM_SR_UIF) {
+        TIM2->SR &= ~TIM_SR_UIF; // limpa flag de update
+        timer_flag = 1;
+    }
 }
 
 } // extern "C"
 
 int main(void)
 {
-    // Habilita clock do GPIOB
+    // Habilita clock do GPIOB (APB2) e do TIM2 (APB1)
     RCC->APB2ENR |= RCC_APB2ENR_IOPBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 
     configureOutputPushPull(GPIOB, LED_R);
     configureOutputPushPull(GPIOB, LED_G);
     configureOutputPushPull(GPIOB, LED_B);
 
-    /* Configuracao do SysTick (estilo BM_SYSTICK)
-     * Clock padrao do Bluepill: HSI = 8 MHz -> AHB = 8 MHz
-     * CLKSOURCE = 0 -> SysTick usa AHB/8 = 1 MHz
-     * Para 1 segundo: ticks = 1_000_000 (cabe em 24 bits: < 0xFFFFFF)
+    /* Configuracao do TIM2
+     * Clock padrao do Bluepill: HSI = 8 MHz -> APB1 = 8 MHz -> TIM_CLK = 8 MHz
+     * PSC = 7999 -> f_CK_CNT = 8 MHz / 8000 = 1 kHz
+     * ARR = 249  -> periodo  = 250 / 1000  = 250 ms
      */
-    const uint32_t ticks = 1000000U;
-    if ((ticks - 1UL) <= 0xFFFFFFUL) {
-        SysTick->LOAD = (uint32_t)(ticks - 1UL); // valor de recarga
-        SysTick->VAL  = 0UL;                     // zera o contador
-        SysTick->CTRL = (0U << 2) |  // CLKSOURCE = 0 -> AHB/8
-                        (1U << 1) |  // TICKINT   = 1 -> habilita IRQ
-                        (1U << 0);   // ENABLE    = 1 -> liga o contador
-    }
+    TIM2->PSC   = 7999U;
+    TIM2->ARR   = 249U;
+    TIM2->CNT   = 0U;
+    TIM2->SR    = 0U;            // garante flags limpas
+    TIM2->DIER |= TIM_DIER_UIE;  // habilita IRQ de update
+    TIM2->CR1  |= TIM_CR1_CEN;   // habilita o contador
 
-    uint8_t index = 0;
-    applyColor(COLORS[index]); // mostra "Apagado" como estado inicial
+    NVIC_EnableIRQ(TIM2_IRQn);
+
+    uint8_t color_index = 0U;
+    uint8_t phase = 0U; // 0..PHASES_PER_COLOR-1; fases pares = ON, impares = OFF
+    applyColor(COLORS[color_index]); // estado inicial: primeira cor acesa
 
     while (1) {
-        if (systick_flag) {
-            systick_flag = 0;
-            index = (index + 1U) % NUM_COLORS;
-            applyColor(COLORS[index]);
+        if (timer_flag) {
+            timer_flag = 0;
+
+            phase = (phase + 1U) % PHASES_PER_COLOR;
+            if (phase == 0U) {
+                // Concluiu 2 piscadas; avanca para a proxima cor
+                color_index = (color_index + 1U) % NUM_COLORS;
+            }
+
+            if ((phase & 1U) == 0U) {
+                applyColor(COLORS[color_index]); // fase ON
+            } else {
+                applyColor(0U);                  // fase OFF
+            }
         }
         __WFI(); // dorme ate a proxima interrupcao
     }
