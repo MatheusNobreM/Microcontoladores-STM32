@@ -1,8 +1,9 @@
 /**
  ******************************************************************************
  * @file    anemometro_sensor.h
- * @brief   Leitura do sensor óptico (LM393 + disco encoder) via EXTI5,
- *          e janela de tempo de 1s via SysTick.
+ * @brief   Contagem do sensor óptico (LM393 + disco encoder) por HARDWARE
+ *          (TIM2 em modo clock externo / ETR no pino PA0) e janela de tempo
+ *          de 1 s via SysTick.
  ******************************************************************************
  */
 
@@ -12,8 +13,9 @@
 #include <stdint.h>
 
 /**
- * @brief Configura o pino PA5 (D0 do sensor) como entrada e habilita
- *        a interrupção EXTI5 na borda de descida.
+ * @brief Configura o pino PA0 (D0 do sensor) como entrada e o TIM2 para
+ *        contar os pulsos por hardware (clock externo via ETR, borda de
+ *        descida). ATENÇÃO: ligue o D0 do sensor em PA0 (não mais PA5).
  */
 void Sensor_Init(void);
 

@@ -27,9 +27,9 @@ void Led_Atualizar(uint32_t millis_atual);
 /**
  * @brief Define a velocidade atual do vento, usada para calcular o
  *        intervalo de piscar do LED (quanto maior a velocidade, menor o
- *        intervalo entre piscadas).
- * @param velocidade_kmh Velocidade do vento em km/h
+ *        intervalo entre piscadas). Recebe o valor em ponto fixo (sem float).
+ * @param velocidade_kmh_x1000 Velocidade do vento em km/h * 1000
  */
-void Led_SetVelocidade(float velocidade_kmh);
+void Led_SetVelocidade(uint32_t velocidade_kmh_x1000);
 
 #endif /* LED_FEEDBACK_H */

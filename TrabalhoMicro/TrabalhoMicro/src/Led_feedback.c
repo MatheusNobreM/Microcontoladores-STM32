@@ -14,7 +14,7 @@
 #define LED_PERIODO_MAX_MS   1000u  /* Vento ~0 km/h  -> pisca devagar (1 Hz)   */
 #define LED_PERIODO_MIN_MS   50u    /* Vento forte    -> pisca rápido (limite)  */
 
-static volatile float    s_velocidadeKmh   = 0.0f;
+static volatile uint32_t s_velKmhX1000     = 0;   /* km/h * 1000 */
 static uint32_t          s_ultimoToggleMs  = 0;
 static uint8_t           s_ledAceso        = 0;
 
@@ -32,24 +32,23 @@ void Led_Init(void)
     s_ledAceso = 0;
 }
 
-void Led_SetVelocidade(float velocidade_kmh)
+void Led_SetVelocidade(uint32_t velocidade_kmh_x1000)
 {
-    s_velocidadeKmh = velocidade_kmh;
+    s_velKmhX1000 = velocidade_kmh_x1000;
 }
 
 void Led_Atualizar(uint32_t millis_atual)
 {
-    /* Calcula o intervalo de piscar: quanto maior a velocidade, menor o período.
-     * Mapeamento simples e provisório (1 / (1 + v)) - recalibrar após os testes
-     * de campo, junto com o FATOR_K do módulo de cálculo. */
-    float periodo_f = (float)LED_PERIODO_MAX_MS / (1.0f + s_velocidadeKmh);
+    /* Intervalo de piscar em ponto fixo (sem float): quanto maior a
+     * velocidade, menor o período. Equivale a MAX / (1 + v_kmh), pois:
+     *   MAX / (1 + v)  =  (MAX * 1000) / (1000 + v*1000)
+     * O numerador (1000 * 1000 = 1.000.000) cabe folgado em uint32. */
+    uint32_t periodo_ms = (LED_PERIODO_MAX_MS * 1000u) / (1000u + s_velKmhX1000);
 
-    if (periodo_f < (float)LED_PERIODO_MIN_MS)
+    if (periodo_ms < LED_PERIODO_MIN_MS)
     {
-        periodo_f = (float)LED_PERIODO_MIN_MS;
+        periodo_ms = LED_PERIODO_MIN_MS;
     }
-
-    uint32_t periodo_ms = (uint32_t)periodo_f;
 
     if ((millis_atual - s_ultimoToggleMs) >= periodo_ms)
     {

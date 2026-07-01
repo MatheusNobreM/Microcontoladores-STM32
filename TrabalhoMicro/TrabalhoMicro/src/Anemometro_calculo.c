@@ -1,28 +1,25 @@
 /**
  ******************************************************************************
  * @file    anemometro_calculo.c
- * @brief   Implementação do cálculo de RPM e velocidade do vento.
+ * @brief   Cálculo de RPM e velocidade do vento em ponto fixo (só inteiros).
  ******************************************************************************
  */
 
 #include "Anemometro_calculo.h"
 
-#define ANEM_PI 3.14159f
-
 AnemometroLeitura_t Anemometro_Calcular(uint32_t pulsos)
 {
     AnemometroLeitura_t leitura;
 
-    /* RPM: pulsos por segundo -> voltas por minuto */
-    leitura.rpm = ((float)pulsos * 60.0f) / (float)ANEM_N_FUROS;
+    leitura.pulsos = pulsos;
 
-    /* Velocidade tangencial na ponta da hélice (m/s) */
-    leitura.velocidade_ms = ((float)pulsos * 2.0f * ANEM_PI * ANEM_RAIO_HELICE)
-                             / (float)ANEM_N_FUROS;
+    /* RPM: pulsos/s -> voltas/min. (pulsos*60)/N_FUROS; o compilador
+     * reduz para pulsos*12 quando N_FUROS = 5. */
+    leitura.rpm = (pulsos * 60u) / ANEM_N_FUROS;
 
-    /* Aplica o fator de perda/calibração e converte para km/h */
-    leitura.velocidade_ms  *= ANEM_FATOR_K;
-    leitura.velocidade_kmh  = leitura.velocidade_ms * 3.6f;
+    /* Velocidade em km/h * 1000: reta pela origem (0 pulsos -> 0 km/h),
+     * geral para toda a faixa de vento. Uma única multiplicação inteira. */
+    leitura.velocidade_kmh_x1000 = pulsos * ANEM_FATOR_KMH_X1000;
 
     return leitura;
 }
