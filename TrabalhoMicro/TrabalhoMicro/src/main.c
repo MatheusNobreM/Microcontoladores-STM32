@@ -16,7 +16,6 @@ int main(void)
 {
     AnemometroLeitura_t leitura = {0};
 
-    /* Inicialização dos módulos */
     Sensor_Init();
     Sensor_TimerInit(CLOCK_SISTEMA_HZ);
     Led_Init();
@@ -35,7 +34,6 @@ int main(void)
             Led_SetVelocidade(leitura.velocidade_kmh_x1000);
 
             /* Envia dados brutos (frame binário) pelo cabo TTL.
-             * Velocidade vai como km/h * 100 (cabe em uint16 até 655 km/h). */
             Uart_EnviarFrame((uint16_t)leitura.pulsos,
                              (uint16_t)leitura.rpm,
                              (uint16_t)(leitura.velocidade_kmh_x1000 / 10u));
